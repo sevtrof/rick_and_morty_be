@@ -7,6 +7,8 @@ To launch the host:
 1. Clone/download rick_and_morty_be
 2. Use your terminal in the project directory: 
 ```go run main.go```
+
+
 To lauch the app:
 1. Clone/download rick_and_morty
 2. Switch the branch to localhost_feature
