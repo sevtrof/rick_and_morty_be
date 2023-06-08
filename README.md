@@ -1,6 +1,7 @@
 # rick_and_morty_be
 
 Backend side for rick_and_morty flutter app above
+
 Not all the features implemented for now from 
 https://rickandmortyapi.com/documentation
 
