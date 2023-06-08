@@ -1,6 +1,10 @@
 # rick_and_morty_be
 
 Backend side for rick_and_morty flutter app above
+Not all the features implemented for now from 
+https://rickandmortyapi.com/documentation
+
+But currently fetching characters with pagination works fine.
 If you want to try it, you should use localhost_feature branch from https://github.com/sevtrof/rick_and_mortyhost
 
 To launch the host:
