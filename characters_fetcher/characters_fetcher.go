@@ -1,11 +1,13 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
+
+	"github.com/lib/pq"
 )
 
 type CharacterInfo struct {
@@ -44,7 +46,33 @@ type APIResponse struct {
 func main() {
 	apiURL := "https://rickandmortyapi.com/api/character"
 
-	var characters []Character
+	connStr := "user= dbname= sslmode=disable password="
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS characters (
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(255),
+		status VARCHAR(255),
+		species VARCHAR(255),
+		type VARCHAR(255),
+		gender VARCHAR(255),
+		image VARCHAR(255),
+		url VARCHAR(255),
+		created TIMESTAMP,
+		location_name VARCHAR(255),
+		location_url VARCHAR(255),
+		origin_name VARCHAR(255),
+		origin_url VARCHAR(255),
+		episode TEXT
+	);`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for {
 		resp, err := http.Get(apiURL)
@@ -60,22 +88,19 @@ func main() {
 			log.Fatal(err)
 		}
 
-		characters = append(characters, apiResponse.Results...)
+		for _, character := range apiResponse.Results {
+			_, err := db.Exec(`INSERT INTO characters (name, status, species, type, gender, image, url, created, location_name, location_url, origin_name, origin_url, episode) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+				character.Name, character.Status, character.Species, character.Type, character.Gender, character.Image, character.Url, character.Created,
+				character.Location.Name, character.Location.Url, character.Origin.Name, character.Origin.Url, pq.Array(character.Episode))
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
 
 		if apiResponse.Info.Next == "" {
 			break
 		}
 		apiURL = apiResponse.Info.Next
-	}
-
-	data, err := json.Marshal(characters)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = os.WriteFile("characters.json", data, 0644)
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	fmt.Println("Done")

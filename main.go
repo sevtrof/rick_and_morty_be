@@ -1,12 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
+
+	"github.com/lib/pq"
 )
 
 type CharacterInfo struct {
@@ -42,16 +44,12 @@ type APIResponse struct {
 	Results []Character   `json:"results"`
 }
 
-var characters []Character
+var db *sql.DB
 
 func main() {
-
-	data, err := os.ReadFile("characters.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = json.Unmarshal(data, &characters)
+	var err error
+	connStr := "user= dbname= sslmode=disable password="
+	db, err = sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,34 +72,69 @@ func charactersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	const pageSize = 20
-	start := (page - 1) * pageSize
-	end := start + pageSize
+	offset := (page - 1) * pageSize
 
-	if start >= len(characters) {
-		http.Error(w, "Page not found", http.StatusNotFound)
+	rows, err := db.Query("SELECT * FROM characters LIMIT $1 OFFSET $2", pageSize, offset)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var characters []Character
+	for rows.Next() {
+		var character Character
+		var episode pq.StringArray
+
+		err := rows.Scan(
+			&character.ID,
+			&character.Name,
+			&character.Status,
+			&character.Species,
+			&character.Type,
+			&character.Gender,
+			&character.Image,
+			&character.Url,
+			&character.Created,
+			&character.Location.Name,
+			&character.Location.Url,
+			&character.Origin.Name,
+			&character.Origin.Url,
+			&episode,
+		)
+
+		character.Episode = episode
+
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		characters = append(characters, character)
+	}
+
+	var totalCount int
+	err = db.QueryRow("SELECT count(*) FROM characters").Scan(&totalCount)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	if end > len(characters) {
-		end = len(characters)
-	}
-
 	info := CharacterInfo{
-		Count: len(characters),
-		Pages: (len(characters) + pageSize - 1) / pageSize,
+		Count: totalCount,
+		Pages: (totalCount + pageSize - 1) / pageSize,
 	}
 
 	if page > 1 {
 		info.Prev = fmt.Sprintf("http://localhost:8080/api/character?page=%d", page-1)
 	}
 
-	if end < len(characters) {
+	if offset+pageSize < totalCount {
 		info.Next = fmt.Sprintf("http://localhost:8080/api/character?page=%d", page+1)
 	}
 
 	response := APIResponse{
 		Info:    info,
-		Results: characters[start:end],
+		Results: characters,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
