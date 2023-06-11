@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/lib/pq"
 )
@@ -44,11 +45,16 @@ type APIResponse struct {
 	Results []Character   `json:"results"`
 }
 
+type FilterPair struct {
+	filterValue string
+	filterName  string
+}
+
 var db *sql.DB
 
 func main() {
 	var err error
-	connStr := "user= dbname= sslmode=disable password="
+	connStr := "user=vsevolodtrofimov dbname=characters sslmode=disable password="
 	db, err = sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal(err)
@@ -64,6 +70,16 @@ func charactersHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Received %s request from %s to %s\n", r.Method, r.RemoteAddr, r.RequestURI)
 
 	query := r.URL.Query()
+	nameFilter := FilterPair{query.Get("name"), "name"}
+	statusFilter := FilterPair{query.Get("status"), "status"}
+	speciesFilter := FilterPair{query.Get("species"), "species"}
+	typeFilter := FilterPair{query.Get("type"), "type"}
+	genderFilter := FilterPair{query.Get("gender"), "gender"}
+
+	filtersList := []FilterPair{nameFilter, statusFilter, speciesFilter, typeFilter, genderFilter}
+
+	log.Printf("Name: %s, Status: %s, Species: %s, Type: %s, Gender: %s", nameFilter, statusFilter, speciesFilter, typeFilter, genderFilter)
+
 	pageParam := query.Get("page")
 	page, err := strconv.Atoi(pageParam)
 
@@ -74,7 +90,42 @@ func charactersHandler(w http.ResponseWriter, r *http.Request) {
 	const pageSize = 20
 	offset := (page - 1) * pageSize
 
-	rows, err := db.Query("SELECT * FROM characters LIMIT $1 OFFSET $2", pageSize, offset)
+	whereFiltersClauses := []string{}
+	params := []interface{}{}
+	placeholderIndex := 1
+
+	for _, item := range filtersList {
+		if item.filterValue != "" {
+			filterClause(item, &whereFiltersClauses, &params, &placeholderIndex)
+		}
+	}
+
+	log.Printf("WhereFiltersClauses: %s", whereFiltersClauses)
+
+	whereClause := ""
+	if len(whereFiltersClauses) > 0 {
+		whereClause = "WHERE " + strings.Join(whereFiltersClauses, " AND ")
+	}
+
+	log.Printf("Where clause: %s", whereClause)
+
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM characters %s", whereClause)
+	log.Printf("Count query: %s", countQuery)
+	log.Printf("Params: %v", params)
+	row := db.QueryRow(countQuery, params...)
+	var totalCount int
+	err = row.Scan(&totalCount)
+	if err != nil {
+		log.Printf("Error: %s", err)
+		http.Error(w, "Error fetching data", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("Total count: %d", totalCount)
+
+	charactersQuery := fmt.Sprintf("SELECT * FROM characters %s LIMIT $%d OFFSET $%d", whereClause, placeholderIndex, placeholderIndex+1)
+	log.Printf("Char query: %s", charactersQuery)
+	params = append(params, pageSize, offset)
+	rows, err := db.Query(charactersQuery, params...)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -112,12 +163,12 @@ func charactersHandler(w http.ResponseWriter, r *http.Request) {
 		characters = append(characters, character)
 	}
 
-	var totalCount int
-	err = db.QueryRow("SELECT count(*) FROM characters").Scan(&totalCount)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	// var totalCount int
+	// err = db.QueryRow("SELECT count(*) FROM characters").Scan(&totalCount)
+	// if err != nil {
+	// 	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	// 	return
+	// }
 
 	info := CharacterInfo{
 		Count: totalCount,
@@ -139,4 +190,14 @@ func charactersHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func filterClause(filterPair FilterPair, whereQuery *[]string, params *[]interface{}, placeholderIndex *int) {
+	log.Printf("Parms: %s, %s, WHERE: %s", filterPair.filterName, filterPair.filterValue, *whereQuery)
+	*whereQuery = append(*whereQuery, fmt.Sprintf("%s ILIKE $%d", filterPair.filterName, *placeholderIndex))
+	if filterPair.filterName != "gender" && filterPair.filterName != "species" {
+		filterPair.filterValue = "%" + filterPair.filterValue + "%"
+	}
+	*params = append(*params, filterPair.filterValue)
+	*placeholderIndex++
 }
