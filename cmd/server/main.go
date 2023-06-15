@@ -11,6 +11,7 @@ import (
 	"ricknmorty/internal/repository"
 	"ricknmorty/internal/usecase/character"
 	"ricknmorty/internal/usecase/favourite"
+	"ricknmorty/internal/usecase/news"
 	"ricknmorty/internal/usecase/user"
 
 	"github.com/joho/godotenv"
@@ -33,6 +34,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// News
+	newsRepo := repository.NewNewsRepository()
+	fetchNewsUseCase := news.NewFetchNewsUseCase(newsRepo)
+	newsHandler := handler.NewNewsHandler(fetchNewsUseCase)
 
 	// Service
 	avatarGen := service.NewAvatarService()
@@ -72,6 +78,9 @@ func main() {
 	http.HandleFunc("/api/favorites/add", favoriteHandler.AddFavoriteCharacter)
 	http.HandleFunc("/api/favorites/remove", favoriteHandler.RemoveFavoriteCharacter)
 	http.HandleFunc("/api/favorites", favoriteHandler.FetchFavoriteCharacters)
+
+	// News endpoints
+	http.HandleFunc("/api/news", newsHandler.FetchNews)
 
 	fmt.Println("Server started at :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
