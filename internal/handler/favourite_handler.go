@@ -4,177 +4,116 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"ricknmorty/internal/domain/service"
 	"ricknmorty/internal/usecase/favourite"
 	"strconv"
-
-	"github.com/golang-jwt/jwt"
+	"strings"
 )
 
 type FavouriteHandler struct {
 	addFavoriteCharacter    *favourite.AddFavouriteCharacter
 	removeFavoriteCharacter *favourite.RemoveFavouriteCharacter
 	fetchFavoriteCharacters *favourite.FetchFavouriteCharacters
+	tokenParser             *service.JwtTokenParser
 }
 
 func NewFavouriteHandler(
 	addFavoriteCharacter *favourite.AddFavouriteCharacter,
 	removeFavoriteCharacter *favourite.RemoveFavouriteCharacter,
-	fetchFavoriteCharacters *favourite.FetchFavouriteCharacters) *FavouriteHandler {
+	fetchFavoriteCharacters *favourite.FetchFavouriteCharacters,
+	tokenParser *service.JwtTokenParser,
+) *FavouriteHandler {
 	return &FavouriteHandler{
 		addFavoriteCharacter:    addFavoriteCharacter,
 		removeFavoriteCharacter: removeFavoriteCharacter,
 		fetchFavoriteCharacters: fetchFavoriteCharacters,
+		tokenParser:             tokenParser,
 	}
 }
 
-func (h *FavouriteHandler) AddFavoriteCharacter(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Got new character to favorites")
-
+func (h *FavouriteHandler) getUserIdFromToken(r *http.Request) (int, error) {
 	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" || len(authHeader) < 8 || authHeader[:7] != "Bearer " {
-		http.Error(w, "invalid Authorization header", http.StatusUnauthorized)
-		return
+	if authHeader == "" {
+		return 0, http.ErrBodyNotAllowed
 	}
 
-	tokenStr := authHeader[7:]
-	claims := &jwt.StandardClaims{}
+	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+	claims, err := h.tokenParser.ParseToken(tokenStr)
 
-	log.Printf("Parsing token")
-	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
-	})
-
-	log.Printf("Checking token: %v", token)
-	if err != nil || !token.Valid {
-		http.Error(w, "invalid token", http.StatusUnauthorized)
-		return
-	}
-
-	log.Printf("Token's fine")
-
-	log.Printf("Getting userId")
-	userId, err := strconv.Atoi(claims.Subject)
 	if err != nil {
-		http.Error(w, "invalid user ID in token", http.StatusUnauthorized)
-		return
+		return 0, http.ErrBodyNotAllowed
 	}
 
-	log.Printf("Got userId: %d", userId)
+	return strconv.Atoi(claims.Subject)
+}
+
+func (h *FavouriteHandler) AddFavoriteCharacter(w http.ResponseWriter, r *http.Request) {
+	log.Println("Got new character to favorites")
+
+	userId, err := h.getUserIdFromToken(r)
+	if err != nil {
+		http.Error(w, "Invalid authorization", http.StatusUnauthorized)
+		return
+	}
 
 	var data map[string]int
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		log.Printf("Decoding: data: %v, err: %v", data, err)
-		http.Error(w, "invalid request payload", http.StatusBadRequest)
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
 	characterId := data["characterId"]
 
-	log.Printf("UserId and characterId: %d, %d", userId, characterId)
-
 	err = h.addFavoriteCharacter.Execute(userId, characterId)
 	if err != nil {
-		http.Error(w, "unable to add favorite character", http.StatusInternalServerError)
+		http.Error(w, "Unable to add favorite character", http.StatusInternalServerError)
 		return
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *FavouriteHandler) RemoveFavoriteCharacter(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Got new character to remove from favorites")
+	log.Println("Got new character to remove from favorites")
 
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" || len(authHeader) < 8 || authHeader[:7] != "Bearer " {
-		http.Error(w, "invalid Authorization header", http.StatusUnauthorized)
-		return
-	}
-
-	tokenStr := authHeader[7:]
-	claims := &jwt.StandardClaims{}
-
-	log.Printf("Parsing token")
-	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
-	})
-
-	log.Printf("Checking token: %v", token)
-	if err != nil || !token.Valid {
-		http.Error(w, "invalid token", http.StatusUnauthorized)
-		return
-	}
-
-	log.Printf("Token's fine")
-
-	log.Printf("Getting userId")
-	userId, err := strconv.Atoi(claims.Subject)
+	userId, err := h.getUserIdFromToken(r)
 	if err != nil {
-		http.Error(w, "invalid user ID in token", http.StatusUnauthorized)
+		http.Error(w, "Invalid authorization", http.StatusUnauthorized)
 		return
 	}
-
-	log.Printf("Got userId: %d", userId)
 
 	var data map[string]int
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		log.Printf("Decoding: data: %v, err: %v", data, err)
-		http.Error(w, "invalid request payload", http.StatusBadRequest)
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
 	characterId := data["characterId"]
 
-	log.Printf("UserId and characterId: %d, %d", userId, characterId)
-
 	err = h.removeFavoriteCharacter.Execute(userId, characterId)
 	if err != nil {
-		http.Error(w, "unable to remove favorite character", http.StatusInternalServerError)
+		http.Error(w, "Unable to remove favorite character", http.StatusInternalServerError)
 		return
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *FavouriteHandler) FetchFavoriteCharacters(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Fetching favorite characters")
+	log.Println("Fetching favorite characters")
 
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" || len(authHeader) < 8 || authHeader[:7] != "Bearer " {
-		http.Error(w, "invalid Authorization header", http.StatusUnauthorized)
-		return
-	}
-
-	tokenStr := authHeader[7:]
-	claims := &jwt.StandardClaims{}
-
-	log.Printf("Parsing token")
-	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
-	})
-
-	log.Printf("Checking token: %v", token)
-	if err != nil || !token.Valid {
-		http.Error(w, "invalid token", http.StatusUnauthorized)
-		return
-	}
-
-	log.Printf("Token's fine")
-
-	log.Printf("Getting userId")
-	userId, err := strconv.Atoi(claims.Subject)
+	userId, err := h.getUserIdFromToken(r)
 	if err != nil {
-		http.Error(w, "invalid user ID in token", http.StatusUnauthorized)
+		http.Error(w, "Invalid authorization", http.StatusUnauthorized)
 		return
 	}
-
-	log.Printf("Got userId: %d", userId)
 
 	characters, err := h.fetchFavoriteCharacters.Execute(userId)
 	if err != nil {
-		log.Printf("Fetching favourtie chars: %v, error: %v", characters, err)
-		http.Error(w, "unable to fetch favorite characters", http.StatusInternalServerError)
+		http.Error(w, "Unable to fetch favorite characters", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Got chars: %v", characters)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(characters)
 }
