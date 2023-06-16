@@ -10,7 +10,7 @@ But currently fetching and filtering characters with pagination works fine.
 For now there are 3 branches:
 1. master - there are basic functionality with filters, characters and some docker files.
 2. docker_database_feature - this branch can be deployed with docker. There will be 2 containers: app and database with characters. So you can run this container and try out basic funsctionality (filters, characters).
-3. profile_feature - this branch is the latest one, it has new feature with profile (registering, login, logout) for mobile app rick_and_morty
+3. profile_feature - this branch is the latest one, it has new feature with profile (registering, login, logout) for mobile app rick_and_morty. Also it contains image generation, news generator, some more profile features.
 
 To launch the host:
 1. Clone/download rick_and_morty_be
