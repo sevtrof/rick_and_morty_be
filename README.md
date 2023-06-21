@@ -48,7 +48,7 @@ so you create containers for images of news_generator and img-generator + you cr
 That's it, you are awesome! Feel free to test application (fetching characters, registering, logging in/out, reading fiction news).
 
 
-To lauch the app:
+## To lauch the mobile app:
 1. Clone/download project
 2. Switch the branch to develop
 3. Follow instructions to get dependencies and generate source code from Readme file
