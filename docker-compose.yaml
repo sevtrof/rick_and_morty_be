@@ -17,7 +17,7 @@ services:
       - "8082:8082"
 
   imgGenerator:
-    image: img-generator
+    image: img_generator
     ports:
       - "8081:8081"
 
