@@ -7,9 +7,11 @@ https://rickandmortyapi.com/documentation
 
 But currently fetching and filtering characters with pagination works fine.
 
-For now there are 3 branches:
+For now there are ~~3~~2 branches:
 1. master - there are basic functionality with filters, characters and some docker files.
-~~ 2. docker_database_feature - this branch can be deployed with docker. There will be 2 containers: app and database with characters. So you can run this container and try out basic funsctionality (filters, characters). ~~
+
+~~2. docker_database_feature - this branch can be deployed with docker. There will be 2 containers: app and database with characters. So you can run this container and try out basic funsctionality (filters, characters).~~
+
 3. profile_feature - this branch is the latest one, it has new feature with profile (registering, login, logout) for mobile app rick_and_morty. Also it contains image generation, news generator, some more profile features. It can be used via docker
 
 To launch the host:
@@ -49,5 +51,5 @@ That's it, you are awesome! Feel free to test application (fetching characters, 
 To lauch the app:
 1. Clone/download project
 2. Switch the branch to develop
-3. Follow instructions to get dependincies and generate source code from Readme file
+3. Follow instructions to get dependencies and generate source code from Readme file
  https://github.com/sevtrof/rick_and_morty 
