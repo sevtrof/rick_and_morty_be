@@ -1,0 +1,35 @@
+services:
+  ricknmorty-app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      - PATH_TO_PROJECT =/app
+      - DB_CONN_STR=postgres://${DB_USERNAME}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable
+      - AVATAR_GEN_URL=${AVATAR_GEN_URL}
+      - NEWS_GEN_URL=${NEWS_GEN_URL}
+
+  newsGenerator:
+    image: news_generator
+    ports:
+      - "8082:8082"
+
+  imgGenerator:
+    image: img-generator
+    ports:
+      - "8081:8081"
+
+  db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./db-init-scripts:/docker-entrypoint-initdb.d/
+
+volumes:
+  pg_data:

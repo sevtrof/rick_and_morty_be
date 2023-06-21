@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	avatarPath string = "/cmd/server/avatars"
+	avatarPath string = "/app/avatars"
 )
 
 func main() {
@@ -27,7 +27,6 @@ func main() {
 		log.Println("Error loading .env file, using environment variables")
 	}
 
-	pathToProject := os.Getenv("PATH_TO_PROJECT")
 	tokenSecretKey := os.Getenv("SECRET_KEY")
 	connStr := os.Getenv("DB_CONN_STR")
 	db, err := sql.Open("postgres", connStr)
@@ -63,8 +62,7 @@ func main() {
 	fetchFavoriteCharacters := favourite.NewFetchFavouriteCharacters(userRepo)
 	favoriteHandler := handler.NewFavouriteHandler(addFavoriteCharacter, removeFavoriteCharacter, fetchFavoriteCharacters, tokenParser)
 
-	avatarsDir := pathToProject + avatarPath
-	http.Handle("/avatars/", http.StripPrefix("/avatars/", http.FileServer(http.Dir(avatarsDir))))
+	http.Handle("/avatars/", http.StripPrefix("/avatars/", http.FileServer(http.Dir(avatarPath))))
 
 	// Character endpoints
 	http.HandleFunc("/api/character", characterHandler.GetCharacters)
